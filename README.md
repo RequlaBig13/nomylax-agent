@@ -1,64 +1,47 @@
 # Nomylax Reference Agent
 
-A standalone reference implementation of the open Nomylax economic-intent protocol.
-
-This service is **not Nomylax itself** and it does not control user funds.
-It exists to prove that an external autonomous agent can propose economic actions
-and hand them to Nomylax for policy, risk and Solana enforcement.
-
-## Design principle
+A standalone test agent for Nomylax. It has no settlement authority and cannot move funds.
 
 **Agent proposes. Nomylax decides. Solana enforces.**
 
-Nomylax is intended to work with any third-party agent that implements the contract below.
-
-## Endpoints
-
-### `GET /api/health`
-Health/capability check.
-
-### `GET /api/contract`
-Machine-readable integration contract.
+## Why there are two intent endpoints
 
 ### `POST /api/intents`
+Returns the native Nomylax intent contract.
 
-Header:
+### `POST /api/generic-intents`
+Returns a deliberately different nested JSON shape:
+
+```json
+{
+  "payload": {
+    "actions": [{
+      "payment": {
+        "value": 0.029,
+        "currency": "SOL",
+        "destination": "<Solana address>"
+      },
+      "description": "Cross-check pricing against a second data source",
+      "trust": { "recipientVerified": true },
+      "risk": { "score": 14 }
+    }]
+  }
+}
+```
+
+Nomylax Universal Agent Gateway can auto-normalize this into its canonical economic intent. This proves the product is not hardcoded to the reference agent schema.
+
+## Other endpoints
+
+- `GET /api/health`
+- `GET /api/contract`
+
+## Authentication
+
+Both POST endpoints use:
 
 ```text
 Authorization: Bearer <AGENT_API_KEY>
-Content-Type: application/json
-```
-
-Request:
-
-```json
-{
-  "agentId": "research-scout",
-  "count": 5
-}
-```
-
-Response:
-
-```json
-{
-  "protocol": "nomylax-intents/1.0",
-  "agent": {
-    "id": "research-scout",
-    "role": "research",
-    "settlementAuthority": false
-  },
-  "intents": [
-    {
-      "amount": 0.014,
-      "token": "SOL",
-      "recipient": "<public Solana address>",
-      "purpose": "Purchase a small market-data snapshot",
-      "recipientVerified": true,
-      "contractRisk": 8
-    }
-  ]
-}
 ```
 
 ## Vercel environment
@@ -66,16 +49,8 @@ Response:
 ```text
 AGENT_API_KEY=<generate with openssl rand -hex 32>
 AGENT_RECIPIENT=<public Devnet wallet address>
-ANTHROPIC_API_KEY=<optional>
-ANTHROPIC_MODEL=<optional>
+ANTHROPIC_API_KEY=<optional, native endpoint only>
+ANTHROPIC_MODEL=<optional, native endpoint only>
 ```
 
-Anthropic is optional. If it is unavailable, the service returns a deterministic
-intent mix so demos remain reliable.
-
-## Universal integration
-
-A third-party does **not** need this repository. They only need to expose the same
-authenticated HTTP contract from their own agent infrastructure.
-
-This repository is the public reference implementation.
+The native endpoint falls back to deterministic intents if Anthropic is unavailable, keeping the demo reliable.
